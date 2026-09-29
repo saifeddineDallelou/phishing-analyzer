@@ -1,0 +1,65 @@
+"""Data models shared across the analyzer."""
+from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+class Link(BaseModel):
+    href: str
+    text: str = ""  # visible text of the link (empty for URLs found in plain text)
+
+
+class Attachment(BaseModel):
+    filename: str | None
+    content_type: str
+    size: int
+    md5: str
+    sha256: str
+
+
+class ParsedEmail(BaseModel):
+    """Everything extracted from a raw .eml, before any detection logic runs."""
+    subject: str = ""
+    from_: str = Field("", alias="from")
+    to: str = ""
+    reply_to: str = ""
+    return_path: str = ""
+    date: str = ""
+    message_id: str = ""
+    received: list[str] = []
+    authentication_results: list[str] = []
+    text_body: str = ""
+    html_body: str = ""
+    links: list[Link] = []
+    attachments: list[Attachment] = []
+
+    model_config = {"populate_by_name": True}
+
+
+class Severity(str, Enum):
+    info = "info"
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class Finding(BaseModel):
+    """One suspicious thing an analyzer noticed. Findings are what make the report explainable."""
+    rule_id: str
+    description: str
+    severity: Severity
+    score: int  # contribution to the final risk score (0-100 scale)
+    mitre: str | None = None  # ATT&CK technique, e.g. "T1566.001"
+
+
+class Verdict(str, Enum):
+    clean = "clean"
+    suspicious = "suspicious"
+    malicious = "malicious"
+
+
+class AnalysisReport(BaseModel):
+    verdict: Verdict
+    score: int
+    findings: list[Finding]
+    email: ParsedEmail
