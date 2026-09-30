@@ -16,6 +16,13 @@ uvicorn app.main:app --reload   # then open http://127.0.0.1:8000/docs
 
 Upload `tests/samples/phishing_example.eml` to `/analyze` in the docs page to try it.
 
+### Organization profile (optional)
+
+To detect impersonation of your own organization (VIPs, departments, lookalikes of your domain),
+copy `config/organization.example.json` to `config/organization.json` and fill it in.
+The real file is git-ignored because VIP names are sensitive. Use `ORG_PROFILE=<path>` to load it
+from elsewhere. Without a profile, the organization rules are skipped.
+
 ## How it works
 
 ```
@@ -33,6 +40,7 @@ not just "score 85".
 |---|---|---|
 | Authentication | AUTH-001 … AUTH-009 | DMARC fail, SPF fail/softfail, missing DKIM |
 | Headers | HDR-001 … HDR-006 | Reply-To mismatch, brand display name on a foreign/free-webmail address, fake address in display name, missing Date/Message-ID, phishing-kit and bulk-mailer fingerprints, homoglyphs in display name |
+| Organization | ORG-001 … ORG-003 | VIP name or internal service name from an outside address (BEC), lookalikes of the organization's own domain |
 | URLs | URL-001 … URL-010 | Link text lies, raw IP, `@` trick, punycode, typosquatting, brand in subdomain, combosquatting, shorteners, redirects |
 | Attachments | ATT-001 … ATT-007 | Dangerous extensions, double extension, RTLO, magic bytes vs extension, VBA macros (oletools), encrypted archive + password in body, programs inside ZIPs |
 
@@ -43,6 +51,7 @@ not just "score 85".
 - [x] URL analysis (registrable domain, brand lookalikes, link-text mismatch…)
 - [x] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
 - [x] Header rules (display-name spoofing, fake addresses, homoglyphs, mailer fingerprints)
+- [x] Organization profile (VIP / internal service impersonation, own-domain lookalikes)
 - [ ] IOC enrichment (VirusTotal, URLscan, AbuseIPDB) with caching, keys in `.env`
 - [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
