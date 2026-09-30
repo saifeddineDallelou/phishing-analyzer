@@ -2,20 +2,26 @@
 from fastapi import FastAPI, HTTPException, UploadFile
 
 from app.analyzers import ANALYZERS
-from app.models import AnalysisReport, ParsedEmail
+from app.intel import enrich
+from app.intel.iocs import extract_iocs
+from app.models import AnalysisReport, Finding, ParsedEmail
 from app.parser import parse_email
 from app.scoring import score
 
 MAX_EMAIL_SIZE = 25 * 1024 * 1024
 
-app = FastAPI(title="Phishing Analyzer", version="0.1.0")
+app = FastAPI(title="Phishing Analyzer", version="0.2.0")
+
+
+def _report(email: ParsedEmail, findings: list[Finding]) -> AnalysisReport:
+    total, verdict = score(findings)
+    return AnalysisReport(verdict=verdict, score=total, findings=findings, iocs=extract_iocs(email), email=email)
 
 
 def analyze_raw(raw: bytes) -> AnalysisReport:
+    """Local rules only: fast, offline, no API keys needed."""
     email = parse_email(raw)
-    findings = [f for analyzer in ANALYZERS for f in analyzer.analyze(email)]
-    total, verdict = score(findings)
-    return AnalysisReport(verdict=verdict, score=total, findings=findings, email=email)
+    return _report(email, [f for analyzer in ANALYZERS for f in analyzer.analyze(email)])
 
 
 @app.get("/health")
@@ -30,8 +36,13 @@ async def parse(file: UploadFile) -> ParsedEmail:
 
 
 @app.post("/analyze", response_model=AnalysisReport, response_model_by_alias=True)
-async def analyze(file: UploadFile) -> AnalysisReport:
-    return analyze_raw(await _read(file))
+async def analyze(file: UploadFile, intel: bool = True) -> AnalysisReport:
+    """Rules + threat intelligence. Use ?intel=false for rules only (no outside requests)."""
+    email = parse_email(await _read(file))
+    findings = [f for analyzer in ANALYZERS for f in analyzer.analyze(email)]
+    if intel:
+        findings += await enrich(email)
+    return _report(email, findings)
 
 
 async def _read(file: UploadFile) -> bytes:

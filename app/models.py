@@ -62,8 +62,17 @@ class Verdict(str, Enum):
     malicious = "malicious"
 
 
+class IOCs(BaseModel):
+    """Indicators of compromise extracted from the email, ready to look up or to block."""
+    hashes: list[str] = []
+    domains: list[str] = []
+    urls: list[str] = []
+    ips: list[str] = []
+
+
 class AnalysisReport(BaseModel):
     verdict: Verdict
     score: int
     findings: list[Finding]
+    iocs: IOCs
     email: ParsedEmail

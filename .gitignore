@@ -8,3 +8,5 @@ samples_private/
 # real organization profile: names of VIPs are sensitive (the example file is committed)
 config/organization.json
 models/*.pkl
+# local tool settings (Claude preview launcher)
+.claude/
