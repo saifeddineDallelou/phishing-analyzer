@@ -90,6 +90,8 @@ def parse_email(raw: bytes) -> ParsedEmail:
         return_path=str(msg.get("Return-Path", "")),
         date=str(msg.get("Date", "")),
         message_id=str(msg.get("Message-ID", "")),
+        mailer=str(msg.get("X-Mailer") or msg.get("User-Agent") or ""),
+        header_names=list(msg.keys()),
         received=[str(h) for h in msg.get_all("Received", [])],
         authentication_results=[str(h) for h in msg.get_all("Authentication-Results", [])],
         text_body=text_body,

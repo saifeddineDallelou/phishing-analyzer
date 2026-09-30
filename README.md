@@ -32,7 +32,7 @@ not just "score 85".
 | Area | Rules | Examples |
 |---|---|---|
 | Authentication | AUTH-001 … AUTH-009 | DMARC fail, SPF fail/softfail, missing DKIM |
-| Headers | HDR-001 | Reply-To domain differs from From domain |
+| Headers | HDR-001 … HDR-006 | Reply-To mismatch, brand display name on a foreign/free-webmail address, fake address in display name, missing Date/Message-ID, phishing-kit and bulk-mailer fingerprints, homoglyphs in display name |
 | URLs | URL-001 … URL-010 | Link text lies, raw IP, `@` trick, punycode, typosquatting, brand in subdomain, combosquatting, shorteners, redirects |
 | Attachments | ATT-001 … ATT-007 | Dangerous extensions, double extension, RTLO, magic bytes vs extension, VBA macros (oletools), encrypted archive + password in body, programs inside ZIPs |
 
@@ -42,7 +42,7 @@ not just "score 85".
 - [x] SPF/DKIM/DMARC checks from `Authentication-Results`
 - [x] URL analysis (registrable domain, brand lookalikes, link-text mismatch…)
 - [x] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
-- [ ] More header rules (Return-Path mismatch, display-name spoofing)
+- [x] Header rules (display-name spoofing, fake addresses, homoglyphs, mailer fingerprints)
 - [ ] IOC enrichment (VirusTotal, URLscan, AbuseIPDB) with caching, keys in `.env`
 - [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
