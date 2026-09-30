@@ -34,13 +34,14 @@ not just "score 85".
 | Authentication | AUTH-001 … AUTH-009 | DMARC fail, SPF fail/softfail, missing DKIM |
 | Headers | HDR-001 | Reply-To domain differs from From domain |
 | URLs | URL-001 … URL-010 | Link text lies, raw IP, `@` trick, punycode, typosquatting, brand in subdomain, combosquatting, shorteners, redirects |
+| Attachments | ATT-001 … ATT-007 | Dangerous extensions, double extension, RTLO, magic bytes vs extension, VBA macros (oletools), encrypted archive + password in body, programs inside ZIPs |
 
 ## Roadmap
 
 - [x] FastAPI skeleton, .eml parsing (headers, bodies, links, attachments)
 - [x] SPF/DKIM/DMARC checks from `Authentication-Results`
 - [x] URL analysis (registrable domain, brand lookalikes, link-text mismatch…)
-- [ ] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
+- [x] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
 - [ ] More header rules (Return-Path mismatch, display-name spoofing)
 - [ ] IOC enrichment (VirusTotal, URLscan, AbuseIPDB) with caching, keys in `.env`
 - [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score

@@ -73,6 +73,7 @@ def _attachments(msg: EmailMessage) -> list[Attachment]:
             size=len(data),
             md5=hashlib.md5(data).hexdigest(),
             sha256=hashlib.sha256(data).hexdigest(),
+            data=data,
         ))
     return attachments
 
