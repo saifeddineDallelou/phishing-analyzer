@@ -16,6 +16,13 @@ uvicorn app.main:app --reload   # then open http://127.0.0.1:8000/docs
 
 Upload `tests/samples/phishing_example.eml` to `/analyze` in the docs page to try it.
 
+### Threat intelligence (optional)
+
+To check IOCs against VirusTotal, AbuseIPDB and URLhaus, copy `.env.example` to `.env` and add
+your free API keys. `.env` is git-ignored: never commit it. Services without a key are skipped,
+and `/analyze?intel=false` runs the local rules only. Only hashes, URLs, domains and IPs are sent,
+never file contents.
+
 ### Organization profile (optional)
 
 To detect impersonation of your own organization (VIPs, departments, lookalikes of your domain),
@@ -40,6 +47,7 @@ not just "score 85".
 |---|---|---|
 | Authentication | AUTH-001 … AUTH-009 | DMARC fail, SPF fail/softfail, missing DKIM |
 | Headers | HDR-001 … HDR-006 | Reply-To mismatch, brand display name on a foreign/free-webmail address, fake address in display name, missing Date/Message-ID, phishing-kit and bulk-mailer fingerprints, homoglyphs in display name |
+| Threat intel | INTEL-001 … INTEL-004 | Attachment hash known to VirusTotal, malicious domain/URL (VirusTotal, URLhaus), newly registered domain, abusive sending IP (AbuseIPDB) |
 | Organization | ORG-001 … ORG-003 | VIP name or internal service name from an outside address (BEC), lookalikes of the organization's own domain |
 | URLs | URL-001 … URL-010 | Link text lies, raw IP, `@` trick, punycode, typosquatting, brand in subdomain, combosquatting, shorteners, redirects |
 | Attachments | ATT-001 … ATT-007 | Dangerous extensions, double extension, RTLO, magic bytes vs extension, VBA macros (oletools), encrypted archive + password in body, programs inside ZIPs |
@@ -52,7 +60,7 @@ not just "score 85".
 - [x] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
 - [x] Header rules (display-name spoofing, fake addresses, homoglyphs, mailer fingerprints)
 - [x] Organization profile (VIP / internal service impersonation, own-domain lookalikes)
-- [ ] IOC enrichment (VirusTotal, URLscan, AbuseIPDB) with caching, keys in `.env`
+- [x] IOC enrichment (VirusTotal, AbuseIPDB, URLhaus) with caching, keys in `.env`
 - [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
 - [ ] Dockerfile, CI, screenshots, demo
