@@ -15,6 +15,8 @@ def test_analyze_returns_report():
     report = resp.json()
     assert {"verdict", "score", "findings", "email"} <= report.keys()
     assert any(f["rule_id"] == "HDR-001" for f in report["findings"])
+    # Raw attachment bytes must never be sent back out
+    assert all("data" not in a for a in report["email"]["attachments"])
 
 
 def test_empty_file_rejected():

@@ -15,6 +15,8 @@ class Attachment(BaseModel):
     size: int
     md5: str
     sha256: str
+    # Raw bytes for the analyzers. Excluded from API responses: never send a malicious file back out.
+    data: bytes = Field(default=b"", exclude=True, repr=False)
 
 
 class ParsedEmail(BaseModel):
