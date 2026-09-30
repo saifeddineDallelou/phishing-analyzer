@@ -1,0 +1,9 @@
+{
+  "names": ["Nordhaven"],
+  "domains": ["nordhaven.tn"],
+  "vips": [
+    {"name": "Jane Doe", "role": "Director"},
+    {"name": "John Smith", "role": "Head of Finance"}
+  ],
+  "service_names": ["Direction", "Scolarité", "Service informatique", "IT Support", "Comptabilité", "Ressources Humaines"]
+}

@@ -26,19 +26,26 @@ TOKEN_SPLIT = re.compile(r"[.\-_]+")
 LOOKS_LIKE_URL = re.compile(r"^(https?://)?[\w\-]+(\.[\w\-]+)+(/\S*)?$", re.IGNORECASE)
 
 
-def levenshtein(a: str, b: str) -> int:
-    """Minimum number of single-character inserts, deletes or replacements to turn a into b."""
-    previous = list(range(len(b) + 1))
-    for i, ca in enumerate(a, start=1):
-        current = [i]
-        for j, cb in enumerate(b, start=1):
-            current.append(min(
-                previous[j] + 1,               # delete ca
-                current[j - 1] + 1,            # insert cb
-                previous[j - 1] + (ca != cb),  # replace (free if same letter)
-            ))
-        previous = current
-    return previous[-1]
+def edit_distance(a: str, b: str) -> int:
+    """Damerau-Levenshtein (optimal string alignment): minimum number of inserts, deletes,
+    replacements or swaps of two neighbouring letters to turn a into b.
+    Swaps matter: 'esprit' -> 'espirt' is 1 swap, but 2 edits for plain Levenshtein."""
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = a[i - 1] != b[j - 1]
+            d[i][j] = min(
+                d[i - 1][j] + 1,         # delete a[i-1]
+                d[i][j - 1] + 1,         # insert b[j-1]
+                d[i - 1][j - 1] + cost,  # replace (free if same letter)
+            )
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)  # swap two neighbours
+    return d[-1][-1]
 
 
 def registrable_domain(host: str) -> str:
@@ -67,13 +74,13 @@ def _max_distance(brand: str) -> int:
     return 1 if len(brand) < 9 else 2
 
 
-def _brand_findings(host: str, domain: str) -> list[Finding]:
+def brand_findings(host: str, domain: str, brands: dict[str, set[str]] = BRANDS) -> list[Finding]:
     """Brand in subdomains (URL-006), brand inside a foreign domain (URL-007), lookalike (URL-005)."""
     ext = _extract(host)
     sub_tokens = set(TOKEN_SPLIT.split(ext.subdomain)) - {""}
     domain_tokens = set(TOKEN_SPLIT.split(ext.domain)) - {""}
     findings = []
-    for brand, official in BRANDS.items():
+    for brand, official in brands.items():
         if domain in official:
             continue
         if brand in sub_tokens:
@@ -85,9 +92,9 @@ def _brand_findings(host: str, domain: str) -> list[Finding]:
         else:
             max_distance = _max_distance(brand)
             for token in domain_tokens:
-                if 0 < levenshtein(token, brand) <= max_distance:
+                if 0 < edit_distance(token, brand) <= max_distance:
                     findings.append(_finding("URL-005", Severity.high, 30,
-                        f"{domain} looks like '{brand}' ('{token}' is {levenshtein(token, brand)} "
+                        f"{domain} looks like '{brand}' ('{token}' is {edit_distance(token, brand)} "
                         f"character(s) away): typosquatting"))
                     break
     return findings
@@ -133,7 +140,7 @@ def analyze_link(link: Link) -> list[Finding]:
         if domain in SHORTENERS:
             findings.append(_finding("URL-008", Severity.low, 10, f"URL shortener hides the destination ({domain})"))
         if domain:
-            findings.extend(_brand_findings(host, domain))
+            findings.extend(brand_findings(host, domain))
 
     if port not in STANDARD_PORTS:
         findings.append(_finding("URL-010", Severity.low, 10, f"Non-standard port {port} on {host}"))

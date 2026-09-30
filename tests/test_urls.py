@@ -1,6 +1,6 @@
 import pytest
 
-from app.analyzers.urls import analyze, analyze_link, levenshtein, registrable_domain
+from app.analyzers.urls import analyze, analyze_link, edit_distance, registrable_domain
 from app.models import Link, ParsedEmail
 
 
@@ -50,10 +50,16 @@ def test_registrable_domain():
     assert registrable_domain("user.github.io") == "user.github.io"
 
 
-def test_levenshtein():
-    assert levenshtein("paypal", "paypa1") == 1
-    assert levenshtein("paypal", "paypall") == 1
-    assert levenshtein("paypal", "google") == 6
+def test_edit_distance():
+    assert edit_distance("paypal", "paypa1") == 1
+    assert edit_distance("paypal", "paypall") == 1
+    assert edit_distance("paypal", "google") == 6
+    assert edit_distance("esprit", "espirt") == 1  # swapped neighbours = 1 edit
+    assert edit_distance("paypal", "paypla") == 1
+
+
+def test_swapped_letters_lookalike():
+    assert ids("https://paypla.com/") == {"URL-005"}
 
 
 def test_each_rule_reported_once_per_email():

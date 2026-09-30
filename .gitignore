@@ -5,4 +5,6 @@ __pycache__/
 .env
 # never commit real malicious samples or API keys
 samples_private/
+# real organization profile: names of VIPs are sensitive (the example file is committed)
+config/organization.json
 models/*.pkl
