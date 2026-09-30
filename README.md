@@ -11,10 +11,14 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 pytest
-uvicorn app.main:app --reload   # then open http://127.0.0.1:8000/docs
+uvicorn app.main:app --reload   # then open http://127.0.0.1:8000
 ```
 
-Upload `tests/samples/phishing_example.eml` to `/analyze` in the docs page to try it.
+Drop `tests/samples/phishing_example.eml` on the page to see a triage report, or use the API at
+`/docs`. The UI treats all email content as hostile: attacker text is only inserted as text (never
+HTML), IOCs are defanged, nothing from the email is clickable, invisible direction characters are
+revealed, and a strict Content-Security-Policy blocks injected scripts. `tests/samples/xss_example.eml`
+is a harmless XSS test email for checking that.
 
 ### Threat intelligence (optional)
 
@@ -61,6 +65,7 @@ not just "score 85".
 - [x] Header rules (display-name spoofing, fake addresses, homoglyphs, mailer fingerprints)
 - [x] Organization profile (VIP / internal service impersonation, own-domain lookalikes)
 - [x] IOC enrichment (VirusTotal, AbuseIPDB, URLhaus) with caching, keys in `.env`
+- [x] Web UI: drag-and-drop triage report (XSS-safe, CSP, defanged IOCs)
 - [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
 - [ ] Dockerfile, CI, screenshots, demo

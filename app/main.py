@@ -1,5 +1,9 @@
-"""FastAPI entry point.  Run: uvicorn app.main:app --reload  -> http://127.0.0.1:8000/docs"""
-from fastapi import FastAPI, HTTPException, UploadFile
+"""FastAPI entry point.  Run: uvicorn app.main:app --reload  -> http://127.0.0.1:8000"""
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.analyzers import ANALYZERS
 from app.intel import enrich
@@ -9,8 +13,33 @@ from app.parser import parse_email
 from app.scoring import score
 
 MAX_EMAIL_SIZE = 25 * 1024 * 1024
+STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="Phishing Analyzer", version="0.2.0")
+# The UI displays attacker-written text. If an XSS bug ever slips in, this policy makes the
+# browser refuse to run it: scripts and styles only from our own files, no inline code,
+# no plugins, and no other site may embed the page in a frame (clickjacking).
+UI_CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
+          "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+
+app = FastAPI(title="Phishing Analyzer", version="0.3.0")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"  # browser must trust our content types
+    response.headers["Referrer-Policy"] = "no-referrer"
+    path = request.url.path
+    if path == "/" or path.startswith("/static/"):  # not /docs: Swagger loads its files from a CDN
+        response.headers["Content-Security-Policy"] = UI_CSP
+        response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 def _report(email: ParsedEmail, findings: list[Finding]) -> AnalysisReport:
