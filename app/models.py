@@ -28,6 +28,8 @@ class ParsedEmail(BaseModel):
     return_path: str = ""
     date: str = ""
     message_id: str = ""
+    mailer: str = ""  # X-Mailer or User-Agent: the software that sent the email
+    header_names: list[str] = []
     received: list[str] = []
     authentication_results: list[str] = []
     text_body: str = ""
