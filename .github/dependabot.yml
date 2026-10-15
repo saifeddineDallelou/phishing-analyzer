@@ -1,0 +1,16 @@
+# Opens a Pull Request when a dependency has a new version (often a security fix).
+# CI then tests the update before you merge it.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

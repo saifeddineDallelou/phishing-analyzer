@@ -1,0 +1,44 @@
+# Runs on every Pull Request and every push to main: tests, then build and smoke-test the container.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: this workflow only needs to read the code.
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      # No API keys here: tests/conftest.py blocks every real outside call anyway.
+      - run: pytest -q
+
+  docker:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t phishing-analyzer:ci .
+      - name: Smoke test (start the container and analyze the sample)
+        run: |
+          docker run -d --name analyzer -p 8000:8000 --read-only --tmpfs /tmp \
+            --tmpfs /home/analyzer/.cache --cap-drop ALL phishing-analyzer:ci
+          for i in $(seq 1 30); do curl -fs http://localhost:8000/health && break; sleep 1; done
+          curl -fs -F "file=@tests/samples/phishing_example.eml" "http://localhost:8000/analyze?intel=false" \
+            | python3 -c "import json, sys; r = json.load(sys.stdin); print('verdict:', r['verdict'], 'score:', r['score'], 'ml:', r['ml_probability']); assert r['verdict'] == 'malicious'"
+          test "$(docker exec analyzer id -u)" = "10001" && echo "runs as non-root user"
+      - name: Container logs
+        if: always()
+        run: docker logs analyzer || true

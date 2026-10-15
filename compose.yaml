@@ -1,0 +1,22 @@
+# One command to run the analyzer with its hardening:  docker compose up --build
+# Then open http://127.0.0.1:8000
+services:
+  analyzer:
+    build: .
+    image: phishing-analyzer
+    ports:
+      - "127.0.0.1:8000:8000"   # only reachable from this computer, not the whole network
+    env_file:
+      - path: .env               # API keys, optional: without it, threat intel is simply off
+        required: false
+    # To use your organization profile (VIP names stay on your disk, never in the image), add:
+    # volumes:
+    #   - ./config/organization.json:/app/config/organization.json:ro
+    read_only: true              # the app can't modify its own files, even if exploited
+    tmpfs:
+      - /tmp
+      - /home/analyzer/.cache    # tldextract keeps a small cache here
+    cap_drop: [ALL]              # no Linux privileges it doesn't need
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
