@@ -66,7 +66,8 @@ not just "score 85".
 - [x] Organization profile (VIP / internal service impersonation, own-domain lookalikes)
 - [x] IOC enrichment (VirusTotal, AbuseIPDB, URLhaus) with caching, keys in `.env`
 - [x] Web UI: drag-and-drop triage report (XSS-safe, CSP, defanged IOCs)
-- [ ] scikit-learn model (dataset, features, precision/recall), blended with rule score
+- [x] scikit-learn model in shadow mode (see "Machine learning" below)
+- [ ] Larger modern legitimate dataset, positive trust features, then use the model in the verdict
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
 - [ ] Dockerfile, CI, screenshots, demo
 
@@ -74,3 +75,28 @@ not just "score 85".
 
 Only the harmless fake sample is committed. Keep real phishing samples in
 `samples_private/` (git-ignored) and never open their links or attachments on your host.
+
+## Machine learning
+
+`models/phishing_model.json` is a logistic regression trained on our rule findings plus a few
+numeric signals (links, attachments, pressure words, body length). It runs in **shadow mode**:
+its probability is shown in the report but does not change the verdict yet.
+
+```bash
+python -m scripts.train_model --exclude AUTH- HDR-004 html_only   # data/phishing + data/legit
+python -m scripts.score_emails data/modern_legit --model models/phishing_model.json
+```
+
+Training data (not in the repo, see `data/` in `.gitignore`): 1,303 phishing emails from the
+[Nazario phishing corpus](https://monkey.org/~jose/phishing/) 2023-2025 (Jose Nazario, CC BY 4.0)
+and 2,500 legitimate emails from the 2003 [SpamAssassin public corpus](https://spamassassin.apache.org/old/publiccorpus/).
+
+**Known dataset bias.** The legitimate emails predate DKIM/DMARC and HTML-only mail, so AUTH-*
+rules, HDR-004 and `html_only` fire in 0% of them. A model using those features scored 97%
+precision / 96% recall on the test split but rated modern legitimate emails (an HTML-only
+recruiter reply) as 99% phishing: it had learned "modern email = phishing". Those features are
+excluded from the shipped model (86.5% precision / 82.8% recall, ROC AUC 0.95 on 951 held-out
+emails). It still over-scores legitimate verification emails ("verify your account" + a link),
+because it has no positive trust signals yet. This is why it stays in shadow mode.
+
+The model is stored as JSON weights rather than a pickle, so loading it can never execute code.

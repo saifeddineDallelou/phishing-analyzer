@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.analyzers import ANALYZERS
 from app.intel import enrich
 from app.intel.iocs import extract_iocs
+from app.ml.model import phishing_probability
 from app.models import AnalysisReport, Finding, ParsedEmail
 from app.parser import parse_email
 from app.scoring import score
@@ -44,7 +45,8 @@ def index() -> FileResponse:
 
 def _report(email: ParsedEmail, findings: list[Finding]) -> AnalysisReport:
     total, verdict = score(findings)
-    return AnalysisReport(verdict=verdict, score=total, findings=findings, iocs=extract_iocs(email), email=email)
+    return AnalysisReport(verdict=verdict, score=total, findings=findings, iocs=extract_iocs(email),
+                          ml_probability=phishing_probability(email, findings), email=email)
 
 
 def analyze_raw(raw: bytes) -> AnalysisReport:
