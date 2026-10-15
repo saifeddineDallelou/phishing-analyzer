@@ -6,13 +6,25 @@ a SOC analyst can act on.
 
 ## Quick start
 
+With Docker (one command, hardened container: non-root, read-only filesystem, no capabilities):
+
+```bash
+docker compose up --build       # then open http://127.0.0.1:8000
+```
+
+Or with Python, for development:
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate          # Windows
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 pytest
 uvicorn app.main:app --reload   # then open http://127.0.0.1:8000
 ```
+
+`requirements.txt` holds only what the app needs to run (that's all the Docker image installs);
+`requirements-dev.txt` adds pytest and scikit-learn. Every Pull Request runs the tests, builds the
+image and smoke-tests it in GitHub Actions; Dependabot proposes dependency updates weekly.
 
 Drop `tests/samples/phishing_example.eml` on the page to see a triage report, or use the API at
 `/docs`. The UI treats all email content as hostile: attacker text is only inserted as text (never
@@ -69,7 +81,8 @@ not just "score 85".
 - [x] scikit-learn model in shadow mode (see "Machine learning" below)
 - [ ] Larger modern legitimate dataset, positive trust features, then use the model in the verdict
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
-- [ ] Dockerfile, CI, screenshots, demo
+- [x] Dockerfile (hardened), Docker Compose, GitHub Actions CI, Dependabot
+- [ ] Screenshots, demo
 
 ## Safety
 

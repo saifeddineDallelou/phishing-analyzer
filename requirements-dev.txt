@@ -1,0 +1,4 @@
+# Everything to run the app, plus tests and model training.
+-r requirements.txt
+pytest>=8.0
+scikit-learn>=1.5  # only for scripts/train_model.py
