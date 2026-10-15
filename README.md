@@ -1,129 +1,162 @@
 # Phishing Analyzer
 
-A FastAPI service that analyzes suspicious emails (SPF/DKIM/DMARC, headers, URLs,
-attachments, IOC enrichment, ML scoring) and produces an explainable triage report
-a SOC analyst can act on.
+[![CI/CD](https://github.com/saifeddineDallelou/phishing-analyzer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saifeddineDallelou/phishing-analyzer/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/saifeddineDallelou/phishing-analyzer)](https://github.com/saifeddineDallelou/phishing-analyzer/releases)
+[![Container](https://img.shields.io/badge/ghcr.io-phishing--analyzer-2496ED?logo=docker&logoColor=white)](https://github.com/saifeddineDallelou/phishing-analyzer/pkgs/container/phishing-analyzer)
+![Python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Quick start
+**An explainable phishing triage service.** Drop a suspicious email, get a verdict with the evidence
+behind it: which checks failed, why it matters, the indicators to block and the MITRE ATT&CK
+techniques involved. Built for the questions a SOC analyst actually asks, not just a score.
 
-With Docker, using the published image (hardened: non-root, read-only filesystem, no capabilities):
+![Triage report for a fake PayPal phishing email](docs/images/report.png)
+
+## Highlights
+
+- **39 explainable detection rules** across authentication (SPF/DKIM/DMARC), header spoofing and
+  BEC, URLs, attachments and organization-specific impersonation, each mapped to MITRE ATT&CK
+- **Threat intelligence** from VirusTotal, AbuseIPDB and URLhaus, in parallel, cached, and never
+  sending file contents
+- **Machine learning in shadow mode**, with a documented dataset bias that a 97% test score was hiding
+- **Secure by design**: XSS-safe report UI with a strict CSP, hardened non-root container, secrets
+  kept out of git and images
+- **CI/CD**: every PR is tested and its container smoke-tested; every release is published to GHCR
+  with a signed, verifiable build provenance
+
+## Try it in one minute
 
 ```bash
-docker compose pull && docker compose up      # then open http://127.0.0.1:8000
-# or without Compose:
 docker run --rm -p 127.0.0.1:8000:8000 ghcr.io/saifeddinedallelou/phishing-analyzer:latest
 ```
 
-Every image is published by CI with a signed build provenance attestation. Check that an image
-really was built by this repository's workflow before running it:
+Open http://127.0.0.1:8000 and drop [`tests/samples/phishing_example.eml`](tests/samples/phishing_example.eml)
+(a harmless fake). The API is documented at http://127.0.0.1:8000/docs.
+
+Verify the image was built by this repository's CI before running it:
 
 ```bash
 gh attestation verify oci://ghcr.io/saifeddinedallelou/phishing-analyzer:latest --owner saifeddineDallelou
 ```
 
-To build from your local code instead: `docker compose up --build`.
-
-Or with Python, for development:
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements-dev.txt
-pytest
-uvicorn app.main:app --reload   # then open http://127.0.0.1:8000
-```
-
-`requirements.txt` holds only what the app needs to run (that's all the Docker image installs);
-`requirements-dev.txt` adds pytest and scikit-learn. Every Pull Request runs the tests, builds the
-image and smoke-tests it in GitHub Actions (CI). Every merge to `main` then publishes the image to
-GitHub Container Registry as `main` and `sha-<commit>`, and every version tag (`v1.2.3`) as `1.2.3`,
-`1.2` and `latest` (CD). Dependabot proposes dependency updates weekly.
-
-Drop `tests/samples/phishing_example.eml` on the page to see a triage report, or use the API at
-`/docs`. The UI treats all email content as hostile: attacker text is only inserted as text (never
-HTML), IOCs are defanged, nothing from the email is clickable, invisible direction characters are
-revealed, and a strict Content-Security-Policy blocks injected scripts. `tests/samples/xss_example.eml`
-is a harmless XSS test email for checking that.
-
-### Threat intelligence (optional)
-
-To check IOCs against VirusTotal, AbuseIPDB and URLhaus, copy `.env.example` to `.env` and add
-your free API keys. `.env` is git-ignored: never commit it. Services without a key are skipped,
-and `/analyze?intel=false` runs the local rules only. Only hashes, URLs, domains and IPs are sent,
-never file contents.
-
-### Organization profile (optional)
-
-To detect impersonation of your own organization (VIPs, departments, lookalikes of your domain),
-copy `config/organization.example.json` to `config/organization.json` and fill it in.
-The real file is git-ignored because VIP names are sensitive. Use `ORG_PROFILE=<path>` to load it
-from elsewhere. Without a profile, the organization rules are skipped.
-
 ## How it works
 
-```
-.eml ──> parser.py ──> ParsedEmail ──> analyzers/* ──> Findings ──> scoring.py ──> AnalysisReport
+```mermaid
+flowchart TD
+    A[Suspicious email<br/>UI upload or API] --> B[Parser<br/>headers, links, attachments]
+    B --> C[Auth · Headers · Organization · URLs · Attachments<br/>39 rules, each finding has a reason]
+    C --> E[Scoring<br/>0-100 and verdict]
+    D[Threat intel<br/>VirusTotal · AbuseIPDB · URLhaus] --> E
+    C -. same findings .-> F[ML model<br/>shadow mode]
+    E --> G[Triage report<br/>verdict, reasons, IOCs, ATT&CK]
+    F -. probability, not in verdict .-> G
 ```
 
-Every analyzer exposes `analyze(ParsedEmail) -> list[Finding]`. A Finding has a rule id,
-a human-readable reason, a severity, a score and a MITRE ATT&CK technique. The reasons
-are what make the report useful: "DMARC fail + lookalike domain + .html attachment",
-not just "score 85".
+Every analyzer returns findings with a rule ID, a human-readable reason, a severity, a score and
+an ATT&CK technique. The reasons are the point: *"DMARC failed + link text shows paypal.com but goes
+to paypa1-verify.xyz + `invoice.pdf.html` attachment"* is something an analyst can act on;
+*"score 85"* is not.
 
 ## Detection rules
 
 | Area | Rules | Examples |
 |---|---|---|
-| Authentication | AUTH-001 … AUTH-009 | DMARC fail, SPF fail/softfail, missing DKIM |
-| Headers | HDR-001 … HDR-006 | Reply-To mismatch, brand display name on a foreign/free-webmail address, fake address in display name, missing Date/Message-ID, phishing-kit and bulk-mailer fingerprints, homoglyphs in display name |
-| Threat intel | INTEL-001 … INTEL-004 | Attachment hash known to VirusTotal, malicious domain/URL (VirusTotal, URLhaus), newly registered domain, abusive sending IP (AbuseIPDB) |
-| Organization | ORG-001 … ORG-003 | VIP name or internal service name from an outside address (BEC), lookalikes of the organization's own domain |
-| URLs | URL-001 … URL-010 | Link text lies, raw IP, `@` trick, punycode, typosquatting, brand in subdomain, combosquatting, shorteners, redirects |
-| Attachments | ATT-001 … ATT-007 | Dangerous extensions, double extension, RTLO, magic bytes vs extension, VBA macros (oletools), encrypted archive + password in body, programs inside ZIPs |
+| Authentication | AUTH-001 … 009 | DMARC fail, SPF fail/softfail, missing DKIM; only our own server's `Authentication-Results` is trusted |
+| Headers | HDR-001 … 006 | Brand name on a free-webmail address, fake address in the display name, homoglyphs, phishing-kit fingerprints |
+| Organization | ORG-001 … 003 | VIP or internal-service name from outside (BEC), lookalikes of the organization's own domain |
+| URLs | URL-001 … 010 | Link text that lies, raw IPs, `@` trick, punycode, typosquatting (Damerau-Levenshtein), brand in subdomain, redirects |
+| Attachments | ATT-001 … 007 | Magic bytes vs extension, double extension, RTLO, VBA auto-exec macros (oletools), encrypted archive with password in body |
+| Threat intel | INTEL-001 … 004 | Known-malicious hash/domain/URL, domain registered days ago, abusive sending IP |
 
-## Roadmap
+Some rules were deliberately **not** written. A Return-Path ≠ From check, for example, would flag
+most legitimate newsletters (they bounce through their mailing provider) and DMARC alignment already
+covers its useful part. The reasoning is documented next to the code.
 
-- [x] FastAPI skeleton, .eml parsing (headers, bodies, links, attachments)
-- [x] SPF/DKIM/DMARC checks from `Authentication-Results`
-- [x] URL analysis (registrable domain, brand lookalikes, link-text mismatch…)
-- [x] Attachment analysis (dangerous extensions, magic bytes, macros, encrypted archives)
-- [x] Header rules (display-name spoofing, fake addresses, homoglyphs, mailer fingerprints)
-- [x] Organization profile (VIP / internal service impersonation, own-domain lookalikes)
-- [x] IOC enrichment (VirusTotal, AbuseIPDB, URLhaus) with caching, keys in `.env`
-- [x] Web UI: drag-and-drop triage report (XSS-safe, CSP, defanged IOCs)
-- [x] scikit-learn model in shadow mode (see "Machine learning" below)
-- [ ] Larger modern legitimate dataset, positive trust features, then use the model in the verdict
-- [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
-- [x] Dockerfile (hardened), Docker Compose, GitHub Actions CI, Dependabot
-- [x] Continuous delivery to GitHub Container Registry with signed build provenance
-- [ ] Screenshots, demo
+## Machine learning, and the bias it uncovered
 
-## Safety
+A logistic regression learns how much to trust each rule, from 3,803 real emails: 1,303 phishing
+emails ([Nazario corpus](https://monkey.org/~jose/phishing/), 2023-2025) and 2,500 legitimate ones
+([SpamAssassin corpus](https://spamassassin.apache.org/old/publiccorpus/), 2003).
 
-Only the harmless fake sample is committed. Keep real phishing samples in
-`samples_private/` (git-ignored) and never open their links or attachments on your host.
+The first model scored **97% precision / 96% recall** on held-out data, and was wrong. The legitimate
+emails predate DKIM/DMARC and HTML-only mail, so it had learned *"modern email = phishing"*. Testing on
+real, recent legitimate emails exposed it:
 
-## Machine learning
+| Real legitimate email | First model | Shipped model | Rules |
+|---|---|---|---|
+| Recruiter reply (HTML-only) | 99% phishing | 22% | clean |
+| WhatsApp verification code | 97% phishing | 97% phishing | clean |
+| GitHub security notice | 34% | 46% | clean |
 
-`models/phishing_model.json` is a logistic regression trained on our rule findings plus a few
-numeric signals (links, attachments, pressure words, body length). It runs in **shadow mode**:
-its probability is shown in the report but does not change the verdict yet.
+Era-dependent features were removed (shipped model: 86.5% precision / 82.8% recall, ROC AUC 0.95).
+It still over-scores legitimate security notifications ("verify your account" + links) because it
+only knows what *bad* looks like, with no trust features yet. So it runs in **shadow mode**: its
+probability is shown, the rules decide. The model ships as plain JSON weights, never a pickle, so
+loading it cannot execute code.
 
 ```bash
-python -m scripts.train_model --exclude AUTH- HDR-004 html_only   # data/phishing + data/legit
+python -m scripts.train_model --exclude AUTH- HDR-004 html_only    # needs data/ (not in the repo)
 python -m scripts.score_emails data/modern_legit --model models/phishing_model.json
 ```
 
-Training data (not in the repo, see `data/` in `.gitignore`): 1,303 phishing emails from the
-[Nazario phishing corpus](https://monkey.org/~jose/phishing/) 2023-2025 (Jose Nazario, CC BY 4.0)
-and 2,500 legitimate emails from the 2003 [SpamAssassin public corpus](https://spamassassin.apache.org/old/publiccorpus/).
+## Security design
 
-**Known dataset bias.** The legitimate emails predate DKIM/DMARC and HTML-only mail, so AUTH-*
-rules, HDR-004 and `html_only` fire in 0% of them. A model using those features scored 97%
-precision / 96% recall on the test split but rated modern legitimate emails (an HTML-only
-recruiter reply) as 99% phishing: it had learned "modern email = phishing". Those features are
-excluded from the shipped model (86.5% precision / 82.8% recall, ROC AUC 0.95 on 951 held-out
-emails). It still over-scores legitimate verification emails ("verify your account" + a link),
-because it has no positive trust signals yet. This is why it stays in shadow mode.
+| Concern | What the project does |
+|---|---|
+| Attacker-controlled text in the UI | Inserted only as text nodes (a test fails if `innerHTML` & co. appear), strict CSP, `frame-ancestors 'none'` |
+| Accidental clicks | IOCs and links are defanged (`hxxp://evil[.]xyz`) and never clickable; RTLO characters are revealed |
+| Malicious files | Parsed and inspected statically only (magic bytes, `oletools`, ZIP listings): nothing is extracted or executed |
+| Container | Non-root user, read-only filesystem, all capabilities dropped, no privilege escalation, bound to localhost |
+| Secrets | API keys only in a git-ignored `.env`, passed at run time, wrapped in `SecretStr`; tests can never call real APIs |
+| Privacy | Real phishing corpora and personal emails live in git-ignored `data/`; threat intel sends hashes, never files |
+| Supply chain | Least-privilege workflows, Dependabot, signed build provenance on every published image |
 
-The model is stored as JSON weights rather than a pickle, so loading it can never execute code.
+## Development
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+pip install -r requirements-dev.txt
+pytest                          # 109 tests
+uvicorn app.main:app --reload   # http://127.0.0.1:8000
+```
+
+Optional configuration:
+
+- **Threat intel:** copy `.env.example` to `.env` and add free API keys for VirusTotal, AbuseIPDB and
+  URLhaus. Missing keys just disable that service. `python -m scripts.check_keys` tests them without
+  printing them.
+- **Organization profile:** copy `config/organization.example.json` to `config/organization.json`
+  (git-ignored) to detect impersonation of your own VIPs, departments and domain.
+
+Workflow: every change goes through a Pull Request; `main` is protected and requires the `tests`
+and `docker` checks. Merges to `main` publish `ghcr.io/…:main`; tags `vX.Y.Z` publish `X.Y.Z` and
+`latest`.
+
+```
+app/
+  parser.py          raw .eml -> structured email
+  analyzers/         auth, headers, organization, urls, attachments (the rules)
+  intel/             IOC extraction, VirusTotal / AbuseIPDB / URLhaus clients, cache
+  ml/                features, dataset loader, JSON model runtime
+  static/            web UI (HTML/CSS/JS, no framework)
+  main.py            FastAPI app, security headers
+scripts/             train_model, score_emails, check_keys
+tests/               109 tests, fake samples only
+```
+
+## Roadmap
+
+- [ ] Trust features (aligned DMARC pass, known senders) and modern legitimate data, then let the model vote
+- [ ] Own DKIM verification and SPF/DMARC record lookups
+- [ ] IOC export to MISP, cases to TheHive, SOAR integration
+- [ ] Demo mode (no uploads of real mail, rate limiting) and continuous deployment
+- [ ] Multi-tenant admin console: accounts with MFA, DNS domain verification, mailbox connectors
+
+## License and credits
+
+Code released under the [MIT License](LICENSE).
+
+Phishing training data: Jose Nazario's phishing corpus (CC BY 4.0). Legitimate training data:
+Apache SpamAssassin public corpus. Neither is redistributed in this repository. Only the fake
+samples in `tests/samples/` are committed; never open real phishing links or attachments on your host.
