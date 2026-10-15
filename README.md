@@ -6,11 +6,22 @@ a SOC analyst can act on.
 
 ## Quick start
 
-With Docker (one command, hardened container: non-root, read-only filesystem, no capabilities):
+With Docker, using the published image (hardened: non-root, read-only filesystem, no capabilities):
 
 ```bash
-docker compose up --build       # then open http://127.0.0.1:8000
+docker compose pull && docker compose up      # then open http://127.0.0.1:8000
+# or without Compose:
+docker run --rm -p 127.0.0.1:8000:8000 ghcr.io/saifeddinedallelou/phishing-analyzer:latest
 ```
+
+Every image is published by CI with a signed build provenance attestation. Check that an image
+really was built by this repository's workflow before running it:
+
+```bash
+gh attestation verify oci://ghcr.io/saifeddinedallelou/phishing-analyzer:latest --owner saifeddineDallelou
+```
+
+To build from your local code instead: `docker compose up --build`.
 
 Or with Python, for development:
 
@@ -24,7 +35,9 @@ uvicorn app.main:app --reload   # then open http://127.0.0.1:8000
 
 `requirements.txt` holds only what the app needs to run (that's all the Docker image installs);
 `requirements-dev.txt` adds pytest and scikit-learn. Every Pull Request runs the tests, builds the
-image and smoke-tests it in GitHub Actions; Dependabot proposes dependency updates weekly.
+image and smoke-tests it in GitHub Actions (CI). Every merge to `main` then publishes the image to
+GitHub Container Registry as `main` and `sha-<commit>`, and every version tag (`v1.2.3`) as `1.2.3`,
+`1.2` and `latest` (CD). Dependabot proposes dependency updates weekly.
 
 Drop `tests/samples/phishing_example.eml` on the page to see a triage report, or use the API at
 `/docs`. The UI treats all email content as hostile: attacker text is only inserted as text (never
@@ -82,6 +95,7 @@ not just "score 85".
 - [ ] Larger modern legitimate dataset, positive trust features, then use the model in the verdict
 - [ ] HTML triage report, MITRE ATT&CK mapping, IOC export (JSON / MISP)
 - [x] Dockerfile (hardened), Docker Compose, GitHub Actions CI, Dependabot
+- [x] Continuous delivery to GitHub Container Registry with signed build provenance
 - [ ] Screenshots, demo
 
 ## Safety

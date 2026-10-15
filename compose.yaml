@@ -1,9 +1,10 @@
-# One command to run the analyzer with its hardening:  docker compose up --build
-# Then open http://127.0.0.1:8000
+# Run the analyzer with its hardening, then open http://127.0.0.1:8000
+#   docker compose pull && docker compose up     use the published image (no build needed)
+#   docker compose up --build                    build from your local code instead
 services:
   analyzer:
     build: .
-    image: phishing-analyzer
+    image: ghcr.io/saifeddinedallelou/phishing-analyzer:latest
     ports:
       - "127.0.0.1:8000:8000"   # only reachable from this computer, not the whole network
     env_file:
