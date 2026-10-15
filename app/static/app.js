@@ -94,7 +94,11 @@ function renderReport(report, usedIntel) {
           el("span", { class: "value" }, String(findings.length), el("small", {}, ` ${high} high`))),
         el("div", { class: "metric" }, el("span", { class: "label" }, "Indicators"),
           el("span", { class: "value" }, String(iocCount)),
-          el("span", { class: "small muted" }, usedIntel ? "threat intel on" : "rules only"))),
+          el("span", { class: "small muted" }, usedIntel ? "threat intel on" : "rules only")),
+        typeof report.ml_probability === "number" ? el("div", { class: "metric" },
+          el("span", { class: "label" }, "ML model"),
+          el("span", { class: "value" }, `${Math.round(report.ml_probability * 100)}%`, el("small", {}, " phishing")),
+          el("span", { class: "small muted" }, "shadow mode: not used in the verdict")) : null),
 
       section("Why this verdict",
         sorted.length === 0 ? el("p", { class: "muted" }, "No suspicious signals found.") :

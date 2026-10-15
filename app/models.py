@@ -75,4 +75,6 @@ class AnalysisReport(BaseModel):
     score: int
     findings: list[Finding]
     iocs: IOCs
+    # Shadow mode: shown next to the rule score, but doesn't change the verdict until we trust it.
+    ml_probability: float | None = None
     email: ParsedEmail

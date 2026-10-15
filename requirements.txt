@@ -7,5 +7,6 @@ pytest>=8.0
 tldextract>=5.1
 oletools>=0.60
 python-dotenv>=1.0
+scikit-learn>=1.5  # only needed to train the model (scripts/train_model.py)
 # Added later:
-# dkimpy, checkdmarc, yara-python, scikit-learn, pandas
+# dkimpy, checkdmarc, yara-python
