@@ -3,7 +3,7 @@
 #   docker run --rm -p 127.0.0.1:8000:8000 --env-file .env phishing-analyzer
 # API keys are passed at run time (--env-file), never copied into the image.
 
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
